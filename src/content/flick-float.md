@@ -16,7 +16,7 @@ sequence:
   - { id: flick, do: hold, action: "steer-{away}", label: Flick away from the corner, short: Flick, holdMs: 75, holdWindow: [50, 100] }
   - { id: steer, do: hold, action: "steer-{side}", label: Strong steer into the corner, short: Steer, mark: true, after: flick, at: 85, window: [50, 160], heldUntil: end }
 end: { after: flick, at: 600 }
-video: { youtube: vkY-8aTcWgM, credit: "A³_Official" }
+video: { youtube: vkY-8aTcWgM, credit: "A³_Official", note: "Skip to 0:54 for the flick float" }
 ---
 
 ## What it is
