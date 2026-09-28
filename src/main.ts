@@ -2,6 +2,7 @@ import './styles.css';
 import { registerSW } from 'virtual:pwa-register';
 import { indexPage } from './pages/index';
 import { mechanismPage } from './pages/mechanism';
+import { showDisclaimer } from './disclaimer';
 
 registerSW({ immediate: true });
 
@@ -17,3 +18,4 @@ function route() {
 
 window.addEventListener('hashchange', route);
 route();
+showDisclaimer();

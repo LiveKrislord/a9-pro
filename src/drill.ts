@@ -1,6 +1,9 @@
 import type { ActionId, InputEvent, ResolvedSequence, ResolvedStep } from './types';
+import type { DrillEngine, DrillPhase, LegendLine, ResultRow, Score } from './engine';
+import { ACTIONS } from './mapping';
+import { fmtOffset } from './ui';
 
-export type DrillPhase = 'idle' | 'armed' | 'running' | 'done';
+export type { DrillPhase } from './engine';
 export type StepStatus = 'pending' | 'pass' | 'fail';
 
 export interface StepResult {
@@ -21,7 +24,7 @@ const HARD_TIMEOUT = 20000;
  * Every later step is matched to the earliest unconsumed press of its action inside
  * its window, measured from the actual time of its reference step.
  */
-export class Drill {
+export class Drill implements DrillEngine {
   phase: DrillPhase = 'idle';
   t0: number | null = null;
   endT: number | null = null;
@@ -77,6 +80,69 @@ export class Drill {
     }
     const endRef = this.seq.end.after ? m.get(this.seq.end.after)! : base;
     return { times: m, endT: endRef + this.seq.end.at };
+  }
+
+  timeline(): { end: number; marks: number[] } {
+    const { times, endT } = this.projected();
+    const base = this.t0 ?? 0;
+    return { end: endT - base, marks: this.seq.steps.filter((s) => s.mark).map((s) => times.get(s.id)! - base) };
+  }
+
+  legend(): LegendLine[] {
+    return this.seq.steps.map((s) => {
+      if (!s.action) return { lead: '', text: s.label };
+      const how = s.kind === 'hold' ? (s.heldUntil ? 'hold' : 'hold briefly') : 'tap';
+      return { lead: `${ACTIONS[s.action].label}, ${how}`, text: s.label };
+    });
+  }
+
+  private stepById(id: string | null): ResolvedStep | undefined {
+    return this.seq.steps.find((s) => s.id === id);
+  }
+
+  rows(): ResultRow[] {
+    return this.seq.steps.map((s) => {
+      const r = this.results.get(s.id)!;
+      const refLabel = this.stepById(s.after)?.label.toLowerCase() ?? null;
+      let you = '';
+      if (s.kind === 'marker') you = refLabel ? fmtOffset(s.at, refLabel) : '';
+      else if (r.offset !== null && refLabel) you = fmtOffset(r.offset, refLabel) + (r.note ? ` · ${r.note}` : '');
+      else you = r.note;
+      const [lo, hi] = s.window;
+      let allowed = s.kind !== 'marker' && s.after && Number.isFinite(hi)
+        ? (Number.isFinite(lo) ? `${lo} to ${hi} ms` : `up to ${hi} ms`)
+        : '';
+      if (s.holdWindow) allowed = [allowed, `hold ${s.holdWindow[0]} to ${s.holdWindow[1]} ms`].filter(Boolean).join(', ');
+      if (!s.after && r.note) you = r.note;
+      const status = s.kind === 'marker' ? 'info' : r.status === 'pass' ? 'pass' : 'fail';
+      return { label: s.label, action: s.action ? ACTIONS[s.action].label : '', status, you, allowed };
+    });
+  }
+
+  failReason(): string | null {
+    const failed = this.seq.steps.find((s) => s.kind !== 'marker' && this.results.get(s.id)!.status === 'fail');
+    if (!failed) return null;
+    const r = this.results.get(failed.id)!;
+    const refLabel = this.stepById(failed.after)?.label.toLowerCase() ?? null;
+    const timing = r.offset !== null && refLabel ? fmtOffset(r.offset, refLabel) : '';
+    const detail = [timing, r.note].filter(Boolean).join(', ');
+    return detail ? `${failed.label}: ${detail}` : failed.label;
+  }
+
+  waitingFor(): string {
+    return this.seq.steps[0].label.toLowerCase();
+  }
+
+  /** On a pass, the reaction time of the marked step relative to its reference. Lower is better. */
+  score(): Score | null {
+    if (this.phase !== 'done' || !this.pass) return null;
+    // A personal best only makes sense as a reaction to an event (a marker), not to another press.
+    const marked = this.seq.steps.find((s) => s.mark && s.after && s.window[0] >= 0 && this.stepById(s.after)?.kind === 'marker');
+    if (!marked) return null;
+    const r = this.results.get(marked.id)!;
+    if (r.offset === null) return null;
+    const refLabel = this.stepById(marked.after)?.label.toLowerCase() ?? 'reference';
+    return { label: `${marked.label} after ${refLabel}`, value: Math.round(r.offset), unit: 'ms', lowerIsBetter: true };
   }
 
   private isDown(action: ActionId, t: number): boolean {
@@ -160,6 +226,17 @@ export class Drill {
       }
     }
 
+    // Holds with a length window: fail as soon as one is held past its maximum.
+    for (const s of steps) {
+      const r = this.results.get(s.id)!;
+      if (!s.holdWindow || !s.action || r.status !== 'pass' || r.t === null || r.note) continue;
+      const release = this.events.find((e) => !e.down && e.action === s.action && e.t > r.t!);
+      if (!release && now - r.t > s.holdWindow[1]) {
+        r.status = 'fail';
+        r.note = `held past ${s.holdWindow[1]} ms`;
+        this.failed = true;
+      }
+    }
     const endRef = this.seq.end.after ? this.times.get(this.seq.end.after) : this.t0;
     this.endT = endRef !== undefined && endRef !== null ? endRef + this.seq.end.at : null;
     const timedOut = this.t0 !== null && now - this.t0 > HARD_TIMEOUT;
@@ -180,6 +257,14 @@ export class Drill {
           r.status = 'fail';
           r.note = `released ${Math.round(end - release.t)} ms before the end`;
         }
+      }
+      if (r.status === 'pass' && s.holdWindow && s.action && r.t !== null) {
+        const release = this.events.find((e) => !e.down && e.action === s.action && e.t > r.t!);
+        const len = release ? release.t - r.t : end - r.t;
+        const [lo, hi] = s.holdWindow;
+        if (len < lo) { r.status = 'fail'; r.note = `held ${Math.round(len)} ms, too short`; }
+        else if (len > hi) { r.status = 'fail'; r.note = `held ${Math.round(len)} ms, too long`; }
+        else r.note = `held ${Math.round(len)} ms`;
       }
       if (r.status === 'pending') { r.status = 'fail'; r.note = 'not reached'; }
     }

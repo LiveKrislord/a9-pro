@@ -1,7 +1,13 @@
 import type { ActionId, InputEvent, PadInput } from '../types';
 import { actionForKey, actionForPad } from '../mapping';
 
-export interface InputStatus { gamepad: string | null }
+export interface InputStatus {
+  gamepad: string | null;
+  mapping: string | null;
+  /** Raw pressed button indices and stick axes, for diagnosing layouts. */
+  pressed: number[];
+  axes: number[];
+}
 export interface InputHandle { stop(): void; held(): Set<ActionId> }
 
 const BUTTON_MAP: Record<number, PadInput> = {
@@ -25,12 +31,14 @@ export function startInput(onEvent: (e: InputEvent) => void, onStatus?: (s: Inpu
     onEvent({ action, down: isDown, t });
   };
 
+  const typing = (e: KeyboardEvent) => (e.target as HTMLElement | null)?.tagName === 'INPUT';
   const onKeyDown = (e: KeyboardEvent) => {
-    if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.repeat || e.metaKey || e.ctrlKey || e.altKey || typing(e)) return;
     const a = actionForKey(e.code);
     if (a) { e.preventDefault(); emit(a, true, e.timeStamp); }
   };
   const onKeyUp = (e: KeyboardEvent) => {
+    if (typing(e)) return;
     const a = actionForKey(e.code);
     if (a) { e.preventDefault(); emit(a, false, e.timeStamp); }
   };
@@ -40,14 +48,25 @@ export function startInput(onEvent: (e: InputEvent) => void, onStatus?: (s: Inpu
   window.addEventListener('blur', onBlur);
 
   let raf = 0;
-  let lastId: string | null = null;
+  let lastStatus = '';
   const padState = new Map<PadInput, boolean>();
+  const report = (gp: Gamepad | null) => {
+    const status: InputStatus = gp
+      ? {
+          gamepad: gp.id,
+          mapping: gp.mapping || 'unknown',
+          pressed: gp.buttons.map((b, i) => (b.pressed || b.value > TRIGGER_THRESHOLD ? i : -1)).filter((i) => i >= 0),
+          axes: Array.from(gp.axes).map((a) => Math.round(a * 100) / 100),
+        }
+      : { gamepad: null, mapping: null, pressed: [], axes: [] };
+    const key = JSON.stringify(status);
+    if (key !== lastStatus) { lastStatus = key; onStatus?.(status); }
+  };
 
   const poll = () => {
     const pads = typeof navigator.getGamepads === 'function' ? navigator.getGamepads() : [];
     const gp = Array.from(pads).find((p) => p && p.connected) ?? null;
-    const id = gp ? gp.id : null;
-    if (id !== lastId) { lastId = id; onStatus?.({ gamepad: id }); }
+    report(gp);
     if (gp) {
       const t = performance.now();
       const now = new Map<PadInput, boolean>();
@@ -67,7 +86,7 @@ export function startInput(onEvent: (e: InputEvent) => void, onStatus?: (s: Inpu
     raf = requestAnimationFrame(poll);
   };
   raf = requestAnimationFrame(poll);
-  onStatus?.({ gamepad: null });
+  report(null);
 
   return {
     stop() {

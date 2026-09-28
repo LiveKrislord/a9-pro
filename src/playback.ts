@@ -16,13 +16,13 @@ export class Playback {
   load(seq: ResolvedSequence) {
     this.seq = seq;
     this.pause();
-    this.t = seq.startT;
+    this.t = this.restT();
     this.onFrame();
   }
 
   play() {
     if (!this.seq) return;
-    if (this.t >= this.seq.endT) this.t = this.seq.startT;
+    if (this.t >= this.seq.endT || this.t < this.seq.startT) this.t = this.seq.startT;
     this.playing = true;
     this.wallRef = performance.now();
     this.tRef = this.t;
@@ -51,27 +51,19 @@ export class Playback {
     this.onFrame();
   }
 
-  next() {
-    if (!this.seq) return;
-    const n = this.stepTimes().find((x) => x > this.t + 1);
+  /** Just before the first step, so nothing shows as pressed until playback starts. */
+  /** Stop and go back to the start. */
+  reset() {
     this.pause();
-    this.seek(n ?? this.seq.endT);
+    this.seek(this.restT());
   }
 
-  prev() {
-    if (!this.seq) return;
-    const before = this.stepTimes().filter((x) => x < this.t - 1);
-    this.pause();
-    this.seek(before.length ? before[before.length - 1] : this.seq.startT);
+  private restT(): number {
+    return this.seq ? this.seq.startT - 1 : 0;
   }
 
   pressed(): Set<ActionId> {
     return this.seq ? pressedAt(this.seq, this.t) : new Set();
-  }
-
-  private stepTimes(): number[] {
-    if (!this.seq) return [];
-    return Array.from(new Set([...this.seq.steps.map((s) => s.t), this.seq.endT])).sort((a, b) => a - b);
   }
 
   private loop = () => {

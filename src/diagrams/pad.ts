@@ -13,7 +13,7 @@ export function padDiagram(kind: 'xbox' | 'dualsense'): Diagram {
   const [fx, fy] = [300, 105];
 
   const circleBtn = (id: string, cx: number, cy: number, label: string) =>
-    `<g data-input="${id}"><circle cx="${cx}" cy="${cy}" r="13"/><text x="${cx}" y="${cy}">${label}</text></g>`;
+    `<g data-input="${id}"><circle cx="${cx}" cy="${cy}" r="14"/><text x="${cx}" y="${cy}"${label.length > 2 ? ' class="tiny"' : ''}>${label}</text></g>`;
   const dpadArm = (id: string, x: number, y: number) =>
     `<g data-input="${id}"><rect x="${x}" y="${y}" width="16" height="16" rx="3"/></g>`;
   const stick = (id: string, cx: number, cy: number, r: number) =>

@@ -1,15 +1,29 @@
-import type { ActionId, ControllerKind, MechanismDef, ParamValues, ResolvedSequence, ResolvedStep } from '../types';
-import { ACTIONS, actionsToInputs, inputLabel } from '../mapping';
-import { defaultParams, resolve } from '../sequence';
+import type { ActionId, ControllerKind, MechanismDef, ParamValues, ResolvedSequence } from '../types';
+import { actionsToInputs } from '../mapping';
+import { defaultParams, resolve, type DriftMode } from '../sequence';
 import { makeDiagram, type Diagram } from '../diagrams';
 import { Playback } from '../playback';
-import { Timeline, type TLView, type UserSpan } from '../timeline';
+import { Timeline } from '../timeline';
 import { Drill } from '../drill';
+import { LoopDrill, loopRules, loopSequence } from '../loop';
+import { CountDrill, countRules, countSequence } from '../count';
+import type { DrillEngine } from '../engine';
 import { startInput } from '../input';
 import { getMechanism } from '../content/load';
-import { fmtOffset, h, segmented } from '../ui';
+import { h, segmented } from '../ui';
+import { addRun, clearRecord, loadRecord, recordKey, saveRecord } from '../scores';
 
 const KIND_KEY = 'a9.controller';
+const DRIFT_KEY = 'a9.drift';
+const LABELS_KEY = 'a9.labels';
+const LABEL_MODES: { label: string; value: 'off' | 'on' }[] = [
+  { label: 'Off', value: 'off' },
+  { label: 'On', value: 'on' },
+];
+const DRIFT_MODES: { label: string; value: DriftMode }[] = [
+  { label: 'Hold', value: 'hold' },
+  { label: 'One tap', value: 'tap' },
+];
 const KINDS: { label: string; value: ControllerKind }[] = [
   { label: 'Xbox', value: 'xbox' },
   { label: 'DualSense', value: 'dualsense' },
@@ -21,6 +35,7 @@ const SPEEDS = [
   { label: '1.00', value: 1 },
 ];
 const NO_PAD = 'No controller detected. Press any button on it, or use the keyboard.';
+type View = 'play' | 'test' | 'details';
 
 export function mechanismPage(root: HTMLElement, id: string): () => void {
   const found = getMechanism(id);
@@ -33,10 +48,31 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
 
   let kind: ControllerKind = (localStorage.getItem(KIND_KEY) as ControllerKind) || 'xbox';
   if (!KINDS.some((k) => k.value === kind)) kind = 'xbox';
+  let driftMode: DriftMode = localStorage.getItem(DRIFT_KEY) === 'tap' ? 'tap' : 'hold';
+  let labels: 'off' | 'on' = localStorage.getItem(LABELS_KEY) === 'on' ? 'on' : 'off';
   let params: ParamValues = defaultParams(def);
-  let seq: ResolvedSequence = resolve(def, params);
+  let seq: ResolvedSequence = buildSeq();
   let mode: 'play' | 'test' = 'play';
-  let drill = new Drill(seq);
+  let view: View = 'play';
+  let drill: DrillEngine = makeDrill();
+
+  /** The nominal sequence for the tutorial: written steps, or generated from the loop rules. */
+  function buildSeq(): ResolvedSequence {
+    if (def.type === 'loop' && def.loop) return loopSequence(loopRules(def.loop, params, driftMode));
+    if (def.type === 'count' && def.count) return countSequence(countRules(def.count, params));
+    return resolve(def, params, { driftMode });
+  }
+
+  function makeDrill(): DrillEngine {
+    if (def.type === 'loop' && def.loop) return new LoopDrill(loopRules(def.loop, params, driftMode));
+    if (def.type === 'count' && def.count) return new CountDrill(countRules(def.count, params));
+    return new Drill(seq);
+  }
+
+  function buildTimeline() {
+    const { end, marks } = drill.timeline();
+    timeline.build(end, marks);
+  }
   let diagram: Diagram = makeDiagram(kind);
   let testRaf = 0;
   let tlSig = '';
@@ -44,86 +80,159 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
 
   // DOM
   const diagramWrap = h('div', { class: 'diagram-wrap' }, diagram.el);
+  const applyLabels = () => diagramWrap.classList.toggle('no-labels', labels === 'off');
+  applyLabels();
   const tlRoot = h('div');
   const timeline = new Timeline(tlRoot);
-  const legend = h('ol', { class: 'legend' });
-  const playBtn = h('button', { class: 'btn', type: 'button' }, 'Play');
-  const prevBtn = h('button', { class: 'btn', type: 'button', title: 'Previous step', 'aria-label': 'Previous step' }, '‹');
-  const nextBtn = h('button', { class: 'btn', type: 'button', title: 'Next step', 'aria-label': 'Next step' }, '›');
+  const legend = h('ul', { class: 'legend' });
+  const PLAY_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>';
+  const PAUSE_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" fill="currentColor"/></svg>';
+  const playLabel = h('span');
+  const playIcon = h('span', { class: 'icon' });
+  const playBtn = h('button', { class: 'btn btn-icon', type: 'button' }, playLabel, playIcon);
+  function setPlayButton(playing: boolean) {
+    playLabel.textContent = playing ? 'Pause' : 'Play';
+    playIcon.innerHTML = playing ? PAUSE_ICON : PLAY_ICON;
+  }
+  setPlayButton(false);
   const speedSeg = segmented(SPEEDS, 1, (v) => playback.setSpeed(v));
   const testBtn = h('button', { class: 'btn', type: 'button' }, 'Start');
   const status = h('span', { class: 'status' });
-  const padStatus = h('p', { class: 'muted small' }, NO_PAD);
+  const padStatus = h('p', { class: 'pad-status' }, NO_PAD);
   const results = h('div', { class: 'results-wrap' });
-  const paramsRow = h('div', { class: 'row' });
   const body = h('article', { class: 'body' });
   body.innerHTML = def.bodyHtml;
+
+  // Settings sidebar: layout and drift mode are global, the rest comes from the mechanic's params.
+  const side = h('aside', { class: 'side', 'aria-label': 'Settings' });
+  const group = (label: string, el: HTMLElement) => h('div', { class: 'side-group' }, h('div', { class: 'side-label' }, label), el);
 
   const kindSeg = segmented(KINDS, kind, (v) => {
     kind = v;
     localStorage.setItem(KIND_KEY, v);
     rebuild();
   });
+  const driftSeg = segmented(DRIFT_MODES, driftMode, (v) => {
+    driftMode = v;
+    localStorage.setItem(DRIFT_KEY, v);
+    rebuild();
+  });
+  const labelsSeg = segmented(LABEL_MODES, labels, (v) => {
+    labels = v;
+    localStorage.setItem(LABELS_KEY, v);
+    applyLabels();
+  });
+  side.append(group('Layout', kindSeg.el), group('Button labels', labelsSeg.el), group('Drift', driftSeg.el));
 
   for (const [key, p] of Object.entries(def.params ?? {})) {
     const seg = segmented(p.options, params[key], (v) => {
       params = { ...params, [key]: v };
+      if (custom) custom.value = '';
       rebuild();
     });
-    paramsRow.append(h('label', {}, p.label), seg.el);
+    let custom: HTMLInputElement | null = null;
+    const wrap = h('div', {}, seg.el);
+    if (p.custom) {
+      const c = p.custom;
+      custom = h('input', { type: 'number', min: String(c.min), max: String(c.max), step: '1', placeholder: 'custom', 'aria-label': `Custom ${p.label}` });
+      const apply = () => {
+        const n = Number(custom!.value);
+        if (!custom!.value || Number.isNaN(n)) return;
+        const v = Math.min(c.max, Math.max(c.min, Math.round(n)));
+        custom!.value = String(v);
+        params = { ...params, [key]: v };
+        seg.set(v);
+        rebuild();
+      };
+      custom.addEventListener('change', apply);
+      custom.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); custom!.blur(); } e.stopPropagation(); });
+      custom.addEventListener('keyup', (e) => e.stopPropagation());
+      wrap.append(h('div', { class: 'custom-row' }, custom, h('span', {}, c.unit ? `${c.unit}, ${c.min} to ${c.max}` : `${c.min} to ${c.max}`)));
+    }
+    side.append(group(p.label, wrap));
   }
 
-  root.replaceChildren(
-    h('p', { class: 'crumb' }, h('a', { href: '#/' }, '← All mechanics')),
-    h('h1', {}, def.title),
-    h('p', { class: 'summary' }, def.summary ?? ''),
-    h('div', { class: 'row' }, h('label', {}, 'Controller'), kindSeg.el),
-    paramsRow,
-    diagramWrap,
-    tlRoot,
-    legend,
-    h('div', { class: 'row controls' }, prevBtn, playBtn, nextBtn, h('label', {}, 'Speed'), speedSeg.el),
-    h('h2', {}, 'Test yourself'),
-    padStatus,
-    h('div', { class: 'row' }, testBtn, status),
-    results,
-    body,
-  );
+  // Views: playback, test and details. The diagram and timeline are shared by the first two.
+  const testTop = h('div', { class: 'panel' }, padStatus);
+  const testRow = h('div', { class: 'panel action-row' }, testBtn, status);
+  const recordText = h('span');
+  const resetBtn = h('button', { type: 'button', title: 'Forget the record for these settings' }, 'reset');
+  const recordRow = h('div', { class: 'panel record' }, recordText, resetBtn);
+  const currentKey = () => recordKey(def.id, params, driftMode);
+  resetBtn.onclick = () => { clearRecord(currentKey()); renderRecord(false); };
+
+  function renderRecord(newBest: boolean) {
+    const r = loadRecord(currentKey());
+    if (r.attempts === 0) { recordText.textContent = 'No runs yet with these settings.'; resetBtn.hidden = true; return; }
+    resetBtn.hidden = false;
+    const parts = [`${r.passes} of ${r.attempts} passed`, `streak ${r.streak}, best ${r.bestStreak}`];
+    if (r.best !== null) parts.push(`best ${r.bestLabel.toLowerCase()}: ${r.best}${r.bestUnit ? ` ${r.bestUnit}` : ''}`);
+    recordText.textContent = parts.join(' · ') + (newBest ? ' · New best.' : '');
+  }
+  const restartBtn = h('button', { class: 'btn', type: 'button', title: 'Back to the start' }, 'Reset');
+  const playRow = h('div', { class: 'panel action-row' }, playBtn, restartBtn, h('label', {}, 'Speed'), speedSeg.el);
+  const shared = h('div', { class: 'panel' }, diagramWrap, tlRoot, playRow, testRow, recordRow, legend);
+  const testPanel = h('div', { class: 'panel' }, results);
+  const detailsPanel = h('div', { class: 'panel' }, body);
+  if (def.video?.youtube) {
+    const frame = h('iframe', {
+      src: `https://www.youtube-nocookie.com/embed/${def.video.youtube}`,
+      title: `${def.title} video`,
+      loading: 'lazy',
+      allow: 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
+      allowfullscreen: '',
+    });
+    detailsPanel.prepend(
+      h('div', { class: 'video' }, frame),
+      def.video.note ? h('p', { class: 'video-note' }, def.video.note) : '',
+      def.video.credit ? h('p', { class: 'credit' }, `Video by ${def.video.credit}`) : '',
+    );
+  }
+  const main = h('div', { class: 'main' }, testTop, shared, testPanel, detailsPanel);
+
+  const VIEWS: { label: string; value: View }[] = [
+    { label: 'Tutorial', value: 'play' },
+    { label: 'Test yourself', value: 'test' },
+    { label: 'Details', value: 'details' },
+  ];
+  const viewSeg = segmented(VIEWS, view, (v) => showView(v));
+  viewSeg.el.classList.add('vertical');
+  side.prepend(group('View', viewSeg.el));
+
+  function showView(v: View) {
+    if (v !== 'test' && testActive()) cancelTest();
+    if (v !== 'play') playback.pause();
+    view = v;
+    viewSeg.set(v);
+    shared.hidden = v === 'details';
+    playRow.hidden = v !== 'play';
+    testPanel.hidden = v !== 'test';
+    testTop.hidden = v !== 'test';
+    testRow.hidden = v !== 'test';
+    recordRow.hidden = v !== 'test';
+    detailsPanel.hidden = v !== 'details';
+  }
+
+  const home = h('a', { href: '#/', class: 'home', 'aria-label': 'Home', title: 'All mechanics' });
+  home.innerHTML =
+    '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 10.5V20h13v-9.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M10 20v-6h4v6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>';
+  side.prepend(h('p', { class: 'crumb' }, home));
+  main.prepend(h('h1', {}, def.title));
+  if (def.summary) main.insertBefore(h('p', { class: 'summary' }, def.summary), main.children[1]);
+  root.classList.add('wide');
+  root.replaceChildren(h('div', { class: 'layout' }, side, main));
 
   const playback = new Playback(frame);
 
   // ----- helpers -----
 
   const testActive = () => drill.phase === 'armed' || drill.phase === 'running';
-  const stepById = (sid: string | null): ResolvedStep | undefined => seq.steps.find((s) => s.id === sid);
-  const laneLabel = (a: ActionId) => `${inputLabel(a, kind)} · ${ACTIONS[a].label}`;
-
-  function viewFrom(timeOf: (s: ResolvedStep) => number, endT: number): TLView {
-    const lanes: TLView['lanes'] = [];
-    for (const s of seq.steps) {
-      if (s.action && !lanes.some((l) => l.action === s.action)) lanes.push({ action: s.action, label: laneLabel(s.action) });
-    }
-    const steps = seq.steps.map((s, i) => {
-      const t = timeOf(s);
-      const refStep = stepById(s.after);
-      const ref = refStep ? timeOf(refStep) : t;
-      let until: number | null = null;
-      if (s.action && s.kind === 'hold') until = s.heldUntil ? endT : t + s.holdMs;
-      return { step: s, index: i + 1, t, ref, until };
-    });
-    const start = Math.min(0, ...steps.map((s) => s.t));
-    return { start, end: endT, lanes, steps };
-  }
-
-  const nominalView = () => viewFrom((s) => s.t, seq.endT);
 
   function renderLegend() {
     legend.replaceChildren(
-      ...seq.steps.map((s) => {
-        const input = s.action ? h('kbd', { class: 'chip' }, inputLabel(s.action, kind)) : h('span', { class: 'muted' }, 'marker');
-        const how = s.kind === 'hold' ? (s.heldUntil ? 'hold to the end' : 'hold') : s.kind === 'tap' ? 'tap' : '';
-        return h('li', {}, h('span', { class: 'step-label' }, s.label), ' ', input, how ? h('span', { class: 'muted' }, ` · ${how}`) : '');
-      }),
+      ...drill.legend().map((l) =>
+        l.lead ? h('li', {}, h('span', { class: 'muted' }, l.lead), ` · ${l.text}`) : h('li', { class: 'muted' }, l.text),
+      ),
     );
   }
 
@@ -132,17 +241,16 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
     if (mode === 'play') for (const a of playback.pressed()) pressed.add(a);
     diagram.set(actionsToInputs(pressed, kind));
     if (mode === 'play') timeline.setHead(playback.t);
-    playBtn.textContent = playback.playing ? 'Pause' : 'Play';
+    setPlayButton(playback.playing);
   }
 
   function updateStatus() {
-    const first = seq.steps[0];
     switch (drill.phase) {
       case 'idle':
         status.textContent = 'Press Start, then do the inputs on your controller or keyboard.';
         break;
       case 'armed':
-        status.textContent = first.action ? `Waiting for ${first.label.toLowerCase()} (${inputLabel(first.action, kind)})…` : 'Waiting…';
+        status.textContent = `Waiting for ${drill.waitingFor()}`;
         break;
       case 'running':
         status.textContent = 'Go.';
@@ -157,28 +265,22 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
   function renderResults() {
     if (drill.phase !== 'done') { results.replaceChildren(); return; }
     const tbody = h('tbody');
-    seq.steps.forEach((s, i) => {
-      const r = drill.results.get(s.id)!;
-      const refLabel = stepById(s.after)?.label.toLowerCase() ?? null;
-      let timing = '';
-      if (s.kind === 'marker') timing = refLabel ? fmtOffset(s.at, refLabel) : '';
-      else if (r.offset !== null && refLabel) timing = fmtOffset(r.offset, refLabel) + (r.note ? ` · ${r.note}` : '');
-      else timing = r.note;
-      const mark = s.kind === 'marker' ? '' : r.status === 'pass' ? '✓' : '✗';
+    for (const r of drill.rows()) {
+      const mark = r.status === 'info' ? '' : r.status === 'pass' ? '✓' : '✗';
       tbody.append(
-        h('tr', { class: s.kind === 'marker' ? 'muted' : r.status },
-          h('td', {}, String(i + 1)),
-          h('td', {}, s.label),
-          h('td', {}, s.action ? inputLabel(s.action, kind) : ''),
+        h('tr', { class: r.status === 'info' ? 'muted' : r.status },
+          h('td', {}, r.label),
+          h('td', { class: 'muted' }, r.action),
           h('td', { class: 'mark' }, mark),
-          h('td', {}, timing),
+          h('td', {}, r.you),
+          h('td', { class: 'muted' }, r.allowed),
         ),
       );
-    });
+    }
     results.replaceChildren(
       h('p', { class: drill.pass ? 'verdict pass' : 'verdict fail' }, drill.pass ? 'Pass' : 'Fail'),
       h('table', { class: 'results' },
-        h('thead', {}, h('tr', {}, h('th', {}, '#'), h('th', {}, 'Step'), h('th', {}, 'Input'), h('th', {}), h('th', {}, 'Timing'))),
+        h('thead', {}, h('tr', {}, h('th', {}, 'Step'), h('th', {}, 'Action'), h('th', {}), h('th', {}, 'You'), h('th', {}, 'Allowed'))),
         tbody,
       ),
     );
@@ -187,15 +289,15 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
   function rebuild() {
     cancelAnimationFrame(testRaf);
     mode = 'play';
-    seq = resolve(def, params);
-    drill = new Drill(seq);
+    seq = buildSeq();
+    drill = makeDrill();
     diagram = makeDiagram(kind);
     diagramWrap.replaceChildren(diagram.el);
-    timeline.build(nominalView());
-    timeline.setUser([]);
+    buildTimeline();
     renderLegend();
     renderResults();
     updateStatus();
+    renderRecord(false);
     playback.load(seq);
   }
 
@@ -203,9 +305,8 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
     if (mode === 'play') return;
     cancelAnimationFrame(testRaf);
     mode = 'play';
-    drill = new Drill(seq);
-    timeline.build(nominalView());
-    timeline.setUser([]);
+    drill = makeDrill();
+    buildTimeline();
     renderResults();
     updateStatus();
     frame();
@@ -216,7 +317,7 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
   function startTest() {
     playback.pause();
     mode = 'test';
-    drill = new Drill(seq);
+    drill = makeDrill();
     drill.arm(performance.now(), live);
     tlSig = '';
     renderResults();
@@ -237,31 +338,44 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
     if (drill.phase === 'done') {
       renderResults();
       updateStatus();
+      const key = currentKey();
+      const before = loadRecord(key);
+      const after = addRun(before, drill.pass === true, drill.score());
+      saveRecord(key, after);
+      renderRecord(after.best !== null && after.best !== before.best);
+      if (!drill.pass) showFailModal();
       return;
     }
     testRaf = requestAnimationFrame(testLoop);
   }
 
+  /** On a failed run: a small modal with the first thing that went wrong. Enter retries, X closes. */
+  function showFailModal() {
+    const reason = drill.failReason() ?? '';
+    const retry = h('button', { class: 'btn', type: 'button', autofocus: '' }, 'Retry');
+    const close = h('button', { class: 'close', type: 'button', 'aria-label': 'Close' }, 'X');
+    const dialog = h('dialog', { class: 'notice result' },
+      close,
+      h('h2', {}, 'Fail'),
+      ...(reason || 'Not all steps were in their window.').split('\n').map((line, i) => h('p', { class: i === 0 ? '' : 'muted small' }, line)),
+      h('div', { class: 'notice-actions' }, retry),
+    );
+    close.onclick = () => dialog.close();
+    retry.onclick = () => { dialog.close(); startTest(); };
+    dialog.addEventListener('close', () => dialog.remove());
+    document.body.append(dialog);
+    if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
+  }
+
   function updateTestView(now: number) {
-    const { times, endT } = drill.projected();
-    const base = drill.t0 ?? 0;
-    const sig = `${Array.from(drill.times.keys()).join(',')}|${drill.phase}`;
+    const geo = drill.timeline();
+    const sig = `${geo.end}|${geo.marks.join(',')}`;
     if (sig !== tlSig) {
       tlSig = sig;
-      timeline.build(viewFrom((s) => times.get(s.id)! - base, endT - base));
+      timeline.build(geo.end, geo.marks);
     }
-    if (drill.t0 === null) { timeline.setHead(null); timeline.setUser([]); return; }
-    const clockEnd = Math.min(now, drill.endT ?? now);
-    timeline.setHead(clockEnd - base);
-    const spans: UserSpan[] = [];
-    const open = new Map<ActionId, number>();
-    for (const e of drill.events) {
-      if (e.down) { if (!open.has(e.action)) open.set(e.action, e.t); continue; }
-      const from = open.get(e.action);
-      if (from !== undefined) { spans.push({ action: e.action, from: from - base, to: e.t - base }); open.delete(e.action); }
-    }
-    for (const [a, from] of open) spans.push({ action: a, from: from - base, to: clockEnd - base });
-    timeline.setUser(spans);
+    if (drill.t0 === null) { timeline.setHead(null); return; }
+    timeline.setHead(Math.min(now, drill.endT ?? now) - drill.t0);
   }
 
   // ----- wiring -----
@@ -272,20 +386,26 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
       if (testActive()) drill.input(e);
       frame();
     },
-    (s) => { padStatus.textContent = s.gamepad ? `Controller: ${s.gamepad}` : NO_PAD; },
+    (s) => {
+      if (!s.gamepad) { padStatus.textContent = NO_PAD; return; }
+      const active = s.pressed.length > 0 || s.axes.some((a) => Math.abs(a) > 0.2);
+      const raw = active ? ` · buttons ${s.pressed.join(',') || 'none'} · axes ${s.axes.slice(0, 4).join(', ')}` : '';
+      padStatus.textContent = `Controller: ${s.gamepad} (${s.mapping} mapping)${raw}`;
+    },
   );
 
   playBtn.onclick = () => { enterPlayMode(); playback.toggle(); };
-  prevBtn.onclick = () => { enterPlayMode(); playback.prev(); };
-  nextBtn.onclick = () => { enterPlayMode(); playback.next(); };
+  restartBtn.onclick = () => { enterPlayMode(); playback.reset(); };
   testBtn.onclick = () => { testActive() ? cancelTest() : startTest(); };
 
   rebuild();
+  showView(view);
 
   return () => {
     input.stop();
     playback.pause();
     cancelAnimationFrame(testRaf);
+    root.classList.remove('wide');
   };
 }
 

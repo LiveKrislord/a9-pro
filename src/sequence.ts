@@ -28,7 +28,20 @@ function bound(b: Bound | undefined, params: ParamValues, fallback: number): num
 
 const DEFAULT_TOLERANCE = 150;
 
-export function resolve(def: MechanismDef, params: ParamValues): ResolvedSequence {
+/** In-game drift control setting. With one-tap drift, a drift hold becomes a single tap. */
+export type DriftMode = 'hold' | 'tap';
+
+export interface ResolveOptions { driftMode?: DriftMode }
+
+/** Params plus the mechanic's derived values. */
+export function withDerived(def: MechanismDef, params: ParamValues): ParamValues {
+  const out = { ...params };
+  for (const [k, d] of Object.entries(def.derived ?? {})) out[k] = d.map[String(params[d.from])] ?? '';
+  return out;
+}
+
+export function resolve(def: MechanismDef, baseParams: ParamValues, opts: ResolveOptions = {}): ResolvedSequence {
+  const params = withDerived(def, baseParams);
   const steps: ResolvedStep[] = [];
   const times = new Map<string, number>();
   let prev: string | null = null;
@@ -42,17 +55,22 @@ export function resolve(def: MechanismDef, params: ParamValues): ResolvedSequenc
     const window: [number, number] = s.window
       ? [bound(s.window[0], params, at - DEFAULT_TOLERANCE), bound(s.window[1], params, at + DEFAULT_TOLERANCE)]
       : [at - DEFAULT_TOLERANCE, at + DEFAULT_TOLERANCE];
+    const action = s.action ? (substStr(s.action, params) as ActionId) : null;
+    const tapDrift = opts.driftMode === 'tap' && action === 'drift' && s.do === 'hold';
     steps.push({
       id: s.id,
-      kind: s.do,
+      kind: tapDrift ? 'tap' : s.do,
       label: s.label ?? s.id,
-      action: s.action ? (substStr(s.action, params) as ActionId) : null,
+      short: s.short ?? s.label ?? s.id,
+      mark: s.mark === true,
+      action,
       after,
       at,
       window,
       tapMs: s.tapMs ?? 80,
-      holdMs: s.holdMs ?? 400,
-      heldUntil: s.heldUntil === 'end',
+      holdMs: substNum(s.holdMs, params, 400),
+      heldUntil: !tapDrift && s.heldUntil === 'end',
+      holdWindow: s.holdWindow ? [substNum(s.holdWindow[0], params, 0), substNum(s.holdWindow[1], params, 0)] : null,
       requires: s.requires ?? [],
       t,
     });
