@@ -2,7 +2,7 @@
 id: brake-nitro
 title: Brake nitro
 category: No speed lose
-summary: Nitro, brake, nitro, each within 100 ms. The first trick to learn.
+summary: Nitro, brake, nitro, three quick taps. The first trick to learn.
 type: count
 params:
   duration:
@@ -20,7 +20,7 @@ count:
     - { action: nitro, label: Nitro tap again }
   durationParam: duration
   unitLabel: Brake nitros
-  maxGapMs: 100
+  maxGapMs: 300
   chain: separate
 ---
 
@@ -31,17 +31,17 @@ The brake nitro is the first hidden mechanic most players learn, and the easiest
 ## How to do it
 
 1. Tap nitro. The clock starts on that tap.
-2. Tap brake within 100 ms.
-3. Tap nitro again within 100 ms of the brake.
+2. Tap brake within 300 ms.
+3. Tap nitro again within 300 ms of the brake.
 
-That is the whole move. Three taps in under a fifth of a second. Do it again whenever you have nitro and room.
+That is the whole move. Three taps in well under a second. Do it again whenever you have nitro and room.
 
 ## Reading the drill
 
-Every nitro, brake, nitro with both gaps under 100 ms counts as one brake nitro. A gap longer than 100 ms ends the run, and so does a press out of order, like two brakes in a row. Between two brake nitros there is no limit, so take your time before the next one. The results list every completed brake nitro with the moment it finished, and the record line keeps your best count for that duration.
+Every nitro, brake, nitro with both gaps under 300 ms counts as one brake nitro. A gap longer than 300 ms ends the run, and so does a press out of order, like two brakes in a row. Between two brake nitros there is no limit, so take your time before the next one. The results list every completed brake nitro with the moment it finished, and the record line keeps your best count for that duration.
 
 ## Common mistakes
 
-- Too slow between the taps. All three have to land inside 200 ms in total.
+- Too slow between the taps. Each one has to follow the last within 300 ms.
 - Brake first. The move opens with nitro.
 - Only one nitro. The second nitro is what turns the brake into a push.
