@@ -10,10 +10,10 @@ import { CountDrill, countRules, countSequence } from '../count';
 import type { DrillEngine } from '../engine';
 import { startInput } from '../input';
 import { getMechanism } from '../content/load';
+import { savedKind } from './index';
 import { h, segmented } from '../ui';
 import { addRun, clearRecord, loadRecord, recordKey, saveRecord } from '../scores';
 
-const KIND_KEY = 'a9.controller';
 const DRIFT_KEY = 'a9.drift';
 const LABELS_KEY = 'a9.labels';
 const LABEL_MODES: { label: string; value: 'off' | 'on' }[] = [
@@ -23,11 +23,6 @@ const LABEL_MODES: { label: string; value: 'off' | 'on' }[] = [
 const DRIFT_MODES: { label: string; value: DriftMode }[] = [
   { label: 'Hold', value: 'hold' },
   { label: 'One tap', value: 'tap' },
-];
-const KINDS: { label: string; value: ControllerKind }[] = [
-  { label: 'Xbox', value: 'xbox' },
-  { label: 'DualSense', value: 'dualsense' },
-  { label: 'Keyboard', value: 'keyboard' },
 ];
 const SPEEDS = [
   { label: '0.25', value: 0.25 },
@@ -46,8 +41,8 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
   const def: MechanismDef = found;
   document.title = `${def.title} · A9 Pro`;
 
-  let kind: ControllerKind = (localStorage.getItem(KIND_KEY) as ControllerKind) || 'xbox';
-  if (!KINDS.some((k) => k.value === kind)) kind = 'xbox';
+  // The layout is chosen on the home page and remembered.
+  const kind: ControllerKind = savedKind() ?? 'xbox';
   let driftMode: DriftMode = localStorage.getItem(DRIFT_KEY) === 'tap' ? 'tap' : 'hold';
   let labels: 'off' | 'on' = localStorage.getItem(LABELS_KEY) === 'on' ? 'on' : 'off';
   let params: ParamValues = defaultParams(def);
@@ -107,11 +102,6 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
   const side = h('aside', { class: 'side', 'aria-label': 'Settings' });
   const group = (label: string, el: HTMLElement) => h('div', { class: 'side-group' }, h('div', { class: 'side-label' }, label), el);
 
-  const kindSeg = segmented(KINDS, kind, (v) => {
-    kind = v;
-    localStorage.setItem(KIND_KEY, v);
-    rebuild();
-  });
   const driftSeg = segmented(DRIFT_MODES, driftMode, (v) => {
     driftMode = v;
     localStorage.setItem(DRIFT_KEY, v);
@@ -122,7 +112,7 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
     localStorage.setItem(LABELS_KEY, v);
     applyLabels();
   });
-  side.append(group('Layout', kindSeg.el), group('Button labels', labelsSeg.el), group('Drift', driftSeg.el));
+  side.append(group('Button labels', labelsSeg.el), group('Drift', driftSeg.el));
 
   for (const [key, p] of Object.entries(def.params ?? {})) {
     const seg = segmented(p.options, params[key], (v) => {
