@@ -238,3 +238,31 @@ import { CountDrill, countRules } from '../src/count';
   console.assert(run360('360 steer too early', early).pass === false, 'early steer should fail');
   console.log('360 assertions ran');
 }
+
+// ----- Brake nitro: nitro, brake, nitro with 100 ms gaps, separate repetitions -----
+{
+  const rawBn = readFileSync(new URL('../src/content/brake-nitro.md', import.meta.url), 'utf8');
+  const fmBn = /^---\r?\n([\s\S]*?)\r?\n---/.exec(rawBn)![1];
+  const defBn = { ...(parseYaml(fmBn) as object), bodyHtml: '' } as MechanismDef;
+  const runBn = (name: string, evs: InputEvent[]) => {
+    const d = new CountDrill(countRules(defBn.count!, { duration: 5000 }));
+    d.arm(0, []);
+    let now = 0;
+    for (const e of [...evs].sort((a, b) => a.t - b.t)) {
+      while (now < e.t && d.phase !== 'done') { now = Math.min(e.t, now + 16); d.tick(now); }
+      if (d.phase !== 'done') d.input(e);
+    }
+    while (d.phase !== 'done') { now += 16; d.tick(now); }
+    console.log(`${name}: pass=${d.pass} count=${d.score()!.value} ${d.failReason()?.split('\n')[0] ?? ''}`);
+    return d;
+  };
+  const three: InputEvent[] = [];
+  for (let t = 100; t < 3000; t += 1000) three.push(dn('nitro', t), dn('drift', t + 60), dn('nitro', t + 120));
+  const ok = runBn('brake nitro three separate', three);
+  console.assert(ok.pass === true && ok.score()!.value === 3, 'three separate brake nitros pass');
+  const slow = runBn('brake nitro slow brake', [dn('nitro', 100), dn('drift', 260)]);
+  console.assert(slow.pass === false && slow.failReason()!.includes('did not follow'), 'slow brake fails');
+  const order = runBn('brake nitro brake first', [dn('drift', 100), dn('nitro', 150)]);
+  console.assert(order.phase === 'armed' || order.pass === false, 'brake first does not start');
+  console.log('brake nitro assertions ran');
+}

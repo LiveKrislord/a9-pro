@@ -14,6 +14,8 @@ export interface CountRules {
   unitLabel: string;
   /** Inside one pass of the pattern, each press must follow the previous within this many ms. */
   maxGapMs: number;
+  /** Closing press doubles as the next opener when the pattern starts and ends with the same action. */
+  overlap: boolean;
 }
 
 function subst(v: string, params: ParamValues): string {
@@ -33,6 +35,7 @@ export function countRules(def: CountDef, params: ParamValues): CountRules {
     durationMs,
     unitLabel: def.unitLabel ?? 'Repetitions',
     maxGapMs: def.maxGapMs ?? 300,
+    overlap: def.chain === 'overlap',
   };
 }
 
@@ -47,10 +50,12 @@ export function countSequence(r: CountRules): ResolvedSequence {
   });
   r.requireHeld.forEach((a, i) => steps.push(step(`h${i}`, 'hold', `${ACTIONS[a].label}, held throughout`, a, 0, true)));
   if (r.entry) steps.push(step('entry', 'tap', r.entryLabel, r.entry, 0, false));
-  const period = r.pattern.length * PRESS_GAP_MS + REPEAT_GAP_MS;
+  // Presses inside a pass sit comfortably inside the allowed gap.
+  const gap = Math.min(PRESS_GAP_MS, Math.round(r.maxGapMs * 0.7));
+  const period = r.pattern.length * gap + REPEAT_GAP_MS;
   let n = 1;
-  for (let t = r.entry ? PRESS_GAP_MS : 0; t + (r.pattern.length - 1) * PRESS_GAP_MS <= r.durationMs; t += period, n++) {
-    r.pattern.forEach((action, i) => steps.push(step(`p${n}-${i}`, 'tap', r.labels[i], action, t + i * PRESS_GAP_MS, false)));
+  for (let t = r.entry ? gap : 0; t + (r.pattern.length - 1) * gap <= r.durationMs; t += period, n++) {
+    r.pattern.forEach((action, i) => steps.push(step(`p${n}-${i}`, 'tap', r.labels[i], action, t + i * gap, false)));
   }
   return { steps, end: { after: null, at: r.durationMs }, endT: r.durationMs, startT: 0 };
 }
@@ -113,6 +118,7 @@ export class CountDrill implements DrillEngine {
       this.endT = e.t + this.rules.durationMs;
       this.phase = 'running';
       this.index = this.rules.entry ? 0 : 1;
+      this.lastPressT = e.t;
       return;
     }
     if (this.phase !== 'running') return;
@@ -132,7 +138,7 @@ export class CountDrill implements DrillEngine {
     this.lastPressT = e.t;
     if (this.index === p.length) {
       this.completed.push(e.t);
-      this.index = p[0] === p[p.length - 1] ? 1 : 0;
+      this.index = this.rules.overlap && p[0] === p[p.length - 1] ? 1 : 0;
     }
   }
 
@@ -166,7 +172,8 @@ export class CountDrill implements DrillEngine {
     const lines: LegendLine[] = this.rules.requireHeld.map((a) => ({ lead: `${ACTIONS[a].label}, hold`, text: 'fully, for the whole run' }));
     if (this.rules.entry) lines.push({ lead: `${ACTIONS[this.rules.entry].label}, tap`, text: `${this.rules.entryLabel} (once)` });
     this.rules.pattern.forEach((a, i) => lines.push({ lead: `${ACTIONS[a].label}, tap`, text: this.rules.labels[i] }));
-    lines.push({ lead: 'Timing', text: `inside a punch, each press within ${this.rules.maxGapMs} ms of the one before` });
+    const one = this.rules.unitLabel.replace(/s$/, '').toLowerCase();
+    lines.push({ lead: 'Timing', text: `inside one ${one}, each press within ${this.rules.maxGapMs} ms of the one before` });
     lines.push({ lead: 'Repeat', text: `for ${this.rules.durationMs / 1000} s from the first press, every completed pattern counts` });
     return lines;
   }

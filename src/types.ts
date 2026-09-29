@@ -91,6 +91,11 @@ export interface CountDef {
   unitLabel?: string;
   /** Inside one pass of the pattern, each press must follow the previous within this many ms. Default 300. */
   maxGapMs?: number;
+  /**
+   * When the pattern starts and ends with the same action: 'overlap' lets the closing press
+   * open the next pass, 'separate' (default) needs a fresh opening press.
+   */
+  chain?: 'overlap' | 'separate';
 }
 
 /** A repeating drill: hold an action for a distance window, nitro in the gap, repeat until time is up. */
