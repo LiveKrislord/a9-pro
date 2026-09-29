@@ -60,8 +60,18 @@ export const PAD_LABELS: Record<'xbox' | 'dualsense', Record<PadInput, string>> 
 export function inputLabel(action: ActionId, kind: ControllerKind): string {
   const b = ACTIONS[action];
   if (kind === 'keyboard') return b.keyLabel;
+  if (kind === 'tilt') return b.label;
   return b.pad ? PAD_LABELS[kind][b.pad] : '';
 }
+
+/** Phone layout: diagram ids are the actions themselves, steering shows as tilt marks. */
+const TILT_INPUTS: Partial<Record<ActionId, string>> = {
+  drift: 'drift',
+  brake: 'drift',
+  nitro: 'nitro',
+  'steer-left': 'tilt-left',
+  'steer-right': 'tilt-right',
+};
 
 function pick(matches: ActionId[]): ActionId | null {
   if (matches.length === 0) return null;
@@ -83,6 +93,7 @@ export function actionForPad(input: PadInput): ActionId | null {
 export function actionsToInputs(actions: Iterable<ActionId>, kind: ControllerKind): Set<string> {
   const out = new Set<string>();
   for (const a of actions) {
+    if (kind === 'tilt') { const id = TILT_INPUTS[a]; if (id) out.add(id); continue; }
     if (kind !== 'keyboard') { const p = ACTIONS[a].pad; if (p) out.add(p); continue; }
     out.add(ACTIONS[a].key);
     // Keys that mean the same thing light up together (S and Down both brake).

@@ -7,6 +7,7 @@ export const LAYOUTS: { label: string; value: ControllerKind }[] = [
   { label: 'Xbox', value: 'xbox' },
   { label: 'DualSense', value: 'dualsense' },
   { label: 'Keyboard', value: 'keyboard' },
+  { label: 'Phone tilt', value: 'tilt' },
 ];
 
 export function savedKind(): ControllerKind | null {

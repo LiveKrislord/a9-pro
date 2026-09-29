@@ -8,7 +8,12 @@ export interface InputStatus {
   pressed: number[];
   axes: number[];
 }
-export interface InputHandle { stop(): void; held(): Set<ActionId> }
+export interface InputHandle {
+  stop(): void;
+  held(): Set<ActionId>;
+  /** Feed a press from another source (touch buttons, tilt) through the same dedupe and clock. */
+  inject(action: ActionId, down: boolean, t: number): void;
+}
 
 const BUTTON_MAP: Record<number, PadInput> = {
   0: 'south', 1: 'east', 2: 'west', 3: 'north',
@@ -96,5 +101,6 @@ export function startInput(onEvent: (e: InputEvent) => void, onStatus?: (s: Inpu
       cancelAnimationFrame(raf);
     },
     held: () => new Set(down),
+    inject: (action, isDown, t) => emit(action, isDown, t),
   };
 }

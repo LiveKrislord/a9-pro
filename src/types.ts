@@ -1,4 +1,4 @@
-export type ControllerKind = 'xbox' | 'dualsense' | 'keyboard';
+export type ControllerKind = 'xbox' | 'dualsense' | 'keyboard' | 'tilt';
 
 export type ActionId =
   | 'accelerate'

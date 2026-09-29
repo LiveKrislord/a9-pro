@@ -285,3 +285,20 @@ dialog.notice .close:hover { color: var(--fg); border-color: var(--muted); }
 dialog.layout-modal { max-width: 720px; }
 dialog.layout-modal .layout-pick { margin: 8px 0 0; }
 dialog.layout-modal .layout-btn { width: 200px; }
+
+/* Phone tilt layout */
+.diagram.tilt { touch-action: none; user-select: none; -webkit-user-select: none; max-width: 640px; }
+.diagram.tilt .screen { fill: var(--bg); stroke: var(--line); stroke-width: 1.5; }
+.diagram.tilt .horizon line { stroke: var(--muted); stroke-width: 2; }
+.diagram.tilt .horizon circle { fill: var(--muted); }
+.diagram.tilt .tilt-mark path { fill: var(--bg); stroke: var(--muted); stroke-width: 1.5; }
+.diagram.tilt .tilt-mark.on path { fill: var(--fg); stroke: var(--fg); }
+.diagram.tilt .touch { cursor: pointer; }
+.diagram.tilt .touch circle { fill: var(--panel); stroke: var(--muted); stroke-width: 2; }
+.diagram.tilt .touch text { font-size: 13px; }
+.diagram.tilt .touch.on circle { fill: var(--fg); stroke: var(--fg); }
+.diagram.tilt .touch.on text { fill: var(--bg); }
+.diagram-wrap.no-labels .diagram.tilt .touch text { display: block; }
+.tilt-row { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 0 0 8px; color: var(--muted); font-size: 15px; }
+dialog.layout-modal h2 { text-align: center; font-size: 24px; font-weight: 700; margin: 4px 0 16px; }
+dialog.layout-modal .layout-pick { justify-content: center; }

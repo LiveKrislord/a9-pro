@@ -9,12 +9,24 @@ import { LoopDrill, loopRules, loopSequence } from '../loop';
 import { CountDrill, countRules, countSequence } from '../count';
 import type { DrillEngine } from '../engine';
 import { startInput } from '../input';
+import { requestTiltPermission, startTilt, tiltNeedsPermission, type TiltHandle } from '../input/tilt';
 import { getMechanism } from '../content/load';
 import { gearButton, savedKind } from '../layoutPick';
 import { h, segmented } from '../ui';
 import { addRun, clearRecord, loadRecord, recordKey, saveRecord } from '../scores';
 
 const DRIFT_KEY = 'a9.drift';
+const TILT_KEY = 'a9.tilt';
+const TILT_INVERT_KEY = 'a9.tiltInvert';
+const TILT_LEVELS: { label: string; value: number }[] = [
+  { label: 'Low', value: 25 },
+  { label: 'Medium', value: 15 },
+  { label: 'High', value: 8 },
+];
+const ON_OFF: { label: string; value: 'off' | 'on' }[] = [
+  { label: 'Off', value: 'off' },
+  { label: 'On', value: 'on' },
+];
 const LABELS_KEY = 'a9.labels';
 const LABEL_MODES: { label: string; value: 'off' | 'on' }[] = [
   { label: 'Off', value: 'off' },
@@ -69,6 +81,9 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
     timeline.build(end, marks);
   }
   let diagram: Diagram = makeDiagram(kind);
+  let tiltThreshold = Number(localStorage.getItem(TILT_KEY)) || 15;
+  let tiltInvert = localStorage.getItem(TILT_INVERT_KEY) === 'on';
+  let tilt: TiltHandle | null = null;
   let testRaf = 0;
   let tlSig = '';
   const live = new Set<ActionId>();
@@ -113,6 +128,53 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
     applyLabels();
   });
   side.append(group('Button labels', labelsSeg.el), group('Drift', driftSeg.el));
+  const tiltSeg = segmented(TILT_LEVELS, tiltThreshold, (v) => {
+    tiltThreshold = v;
+    localStorage.setItem(TILT_KEY, String(v));
+    setupTilt();
+  });
+  const invertSeg = segmented(ON_OFF, tiltInvert ? 'on' : 'off', (v) => {
+    tiltInvert = v === 'on';
+    localStorage.setItem(TILT_INVERT_KEY, v);
+    setupTilt();
+  });
+  const tiltGroup = group('Tilt sensitivity', tiltSeg.el);
+  const invertGroup = group('Invert tilt', invertSeg.el);
+  side.append(tiltGroup, invertGroup);
+
+  // Phone layout: the status line shows the lean, and iOS needs a tap to allow the sensor.
+  const enableTilt = h('button', { class: 'btn', type: 'button' }, 'Enable tilt');
+  const tiltRow = h('div', { class: 'tilt-row' }, enableTilt);
+  enableTilt.onclick = async () => {
+    const ok = await requestTiltPermission();
+    if (ok) { enableTilt.hidden = true; setupTilt(true); } else padStatus.textContent = 'Tilt was not allowed. Reload the page and tap Enable tilt again.';
+  };
+
+  function setupTilt(granted = false) {
+    tilt?.stop();
+    tilt = null;
+    const isTilt = kind === 'tilt';
+    tiltGroup.hidden = !isTilt;
+    invertGroup.hidden = !isTilt;
+    tiltRow.hidden = !isTilt || !tiltNeedsPermission() || granted;
+    if (!isTilt) return;
+    diagram.bind?.((action, down, t) => input.inject(action, down, t));
+    if (tiltNeedsPermission() && !granted) { padStatus.textContent = 'Tap Enable tilt, then hold the phone sideways.'; return; }
+    padStatus.textContent = 'Waiting for the tilt sensor. Hold the phone sideways.';
+    let shown = NaN;
+    tilt = startTilt({
+      thresholdDeg: tiltThreshold,
+      invert: tiltInvert,
+      press: (action, down, t) => input.inject(action, down, t),
+      onAngle: (deg) => {
+        diagram.setTilt?.(deg);
+        const r = Math.round(deg);
+        if (r === shown) return;
+        shown = r;
+        padStatus.textContent = `Tilt ${r > 0 ? 'right' : r < 0 ? 'left' : 'center'} ${Math.abs(r)} degrees. Steers past ${tiltThreshold}. Start recenters.`;
+      },
+    });
+  }
 
   for (const [key, p] of Object.entries(def.params ?? {})) {
     const seg = segmented(p.options, params[key], (v) => {
@@ -143,7 +205,7 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
   }
 
   // Views: playback, test and details. The diagram and timeline are shared by the first two.
-  const testTop = h('div', { class: 'panel' }, padStatus);
+  const testTop = h('div', { class: 'panel' }, padStatus, tiltRow);
   const testRow = h('div', { class: 'panel action-row' }, testBtn, status);
   const recordText = h('span');
   const resetBtn = h('button', { type: 'button', title: 'Forget the record for these settings' }, 'reset');
@@ -284,6 +346,7 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
     drill = makeDrill();
     diagram = makeDiagram(kind);
     diagramWrap.replaceChildren(diagram.el);
+    setupTilt();
     buildTimeline();
     renderLegend();
     renderResults();
@@ -309,6 +372,7 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
     playback.pause();
     mode = 'test';
     drill = makeDrill();
+    tilt?.recenter();
     drill.arm(performance.now(), live);
     tlSig = '';
     renderResults();
@@ -378,6 +442,7 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
       frame();
     },
     (s) => {
+      if (kind === 'tilt') return;
       if (!s.gamepad) { padStatus.textContent = NO_PAD; return; }
       const active = s.pressed.length > 0 || s.axes.some((a) => Math.abs(a) > 0.2);
       const raw = active ? ` · buttons ${s.pressed.join(',') || 'none'} · axes ${s.axes.slice(0, 4).join(', ')}` : '';
@@ -393,6 +458,7 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
   showView(view);
 
   return () => {
+    tilt?.stop();
     input.stop();
     playback.pause();
     cancelAnimationFrame(testRaf);
