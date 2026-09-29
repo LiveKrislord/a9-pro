@@ -401,3 +401,15 @@ main:not(.wide) > * { flex: 0 0 auto; }
 .card[aria-pressed="true"] .card-icon { color: var(--bg); }
 .card-icon img { width: 32px; height: 32px; display: block; }
 .card[aria-pressed="true"] .card-icon img { filter: invert(1); }
+
+/* Masthead */
+:root { --brand: #8a5cf5; }
+.brand { display: flex; align-items: center; gap: 18px; }
+.mark { display: flex; flex-direction: column; align-items: center; line-height: 1; margin: 0; }
+.mark-a { font-size: 44px; font-weight: 900; font-style: italic; letter-spacing: -0.04em; color: var(--fg); }
+.mark-a i { font-style: italic; color: var(--brand); margin-right: -0.06em; }
+.mark-sub { font-size: 13px; font-weight: 700; letter-spacing: 0.32em; margin-left: 0.32em; color: var(--brand); margin-top: 2px; }
+.tagline { display: flex; flex-direction: column; gap: 2px; border-left: 1px solid var(--line); padding-left: 18px; }
+.tagline strong { font-size: 20px; font-weight: 700; }
+.tagline span { color: var(--muted); font-size: 15px; }
+.home-head .summary { display: none; }

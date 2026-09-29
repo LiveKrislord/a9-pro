@@ -11,6 +11,14 @@ const CATEGORY_TEXT: Record<string, string> = {
   'Gain momentum': 'Come out of a landing faster than you went in.',
 };
 
+/** The masthead: a slash-A mark with PRO under it, and the tagline beside it. */
+function brand(): HTMLElement {
+  return h('div', { class: 'brand' },
+    h('h1', { class: 'mark', 'aria-label': 'A9 Pro' }, h('span', { class: 'mark-a' }, h('i', {}, '/'), 'A'), h('span', { class: 'mark-sub' }, 'PRO')),
+    h('div', { class: 'tagline' }, h('strong', {}, 'From zero to hero'), h('span', {}, 'full mechanics guide')),
+  );
+}
+
 const FOOTER = 'Unofficial fan project, not affiliated with or endorsed by Gameloft. Asphalt is a trademark of Gameloft. Xbox is a trademark of Microsoft. PlayStation and DualSense are trademarks of Sony Interactive Entertainment. Videos belong to their creators. All credits reserved to LiveKrislord.';
 
 const CHEVRON_LEFT = '<svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true"><path d="M15 4l-8 8 8 8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -32,7 +40,7 @@ export function indexPage(root: HTMLElement): () => void {
 
   function renderPick() {
     root.replaceChildren(
-      h('h1', {}, 'A9 hidden mechanics'),
+      brand(),
       h('p', { class: 'summary' }, 'Input layouts and drills for Asphalt 9 Legends.'),
       h('p', { class: 'hint' }, 'Pick your layout to start.'),
       layoutTiles(null, () => render()),
@@ -100,7 +108,7 @@ export function indexPage(root: HTMLElement): () => void {
 
     root.replaceChildren(
       h('div', { class: 'home-head' },
-        h('div', {}, h('h1', {}, 'A9 hidden mechanics'), h('p', { class: 'summary' }, 'Learn the tricks, then test your hands.')),
+        h('div', {}, brand(), h('p', { class: 'summary' }, 'Learn the tricks, then test your hands.')),
         h('div', { class: 'home-tools' }, h('span', { class: 'chip' }, layoutName), gearButton(() => render())),
       ),
       search,
