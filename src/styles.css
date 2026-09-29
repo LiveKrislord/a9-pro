@@ -302,3 +302,72 @@ dialog.layout-modal .layout-btn { width: 200px; }
 .tilt-row { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 0 0 8px; color: var(--muted); font-size: 15px; }
 dialog.layout-modal h2 { text-align: center; font-size: 24px; font-weight: 700; margin: 4px 0 16px; }
 dialog.layout-modal .layout-pick { justify-content: center; }
+
+/* Mechanic carousel under the category cards */
+.carousel { display: grid; grid-template-columns: 56px 1fr 56px; gap: 12px; align-items: center; margin: 4px 0 24px; }
+.carousel .track { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 4px 2px; }
+.carousel .track::-webkit-scrollbar { display: none; }
+.mcard {
+  flex: 0 0 300px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 150px;
+  padding: 20px 22px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--fg);
+}
+.mcard:hover { border-color: var(--muted); }
+.mcard-title { font-size: 20px; font-weight: 600; }
+.mcard-text { color: var(--muted); font-size: 15px; line-height: 1.45; }
+.mcard-cat { color: var(--muted); font-size: 13px; margin-top: auto; }
+.chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--fg);
+  cursor: pointer;
+}
+.chevron:hover:not(:disabled) { border-color: var(--fg); }
+.chevron:disabled { color: var(--line); cursor: default; }
+@media (max-width: 600px) {
+  .carousel { grid-template-columns: 44px 1fr 44px; gap: 8px; }
+  .chevron { width: 44px; height: 44px; }
+  .mcard { flex-basis: 240px; }
+}
+
+/* Home search */
+.search { margin: 0 0 16px; }
+.search input {
+  width: 100%;
+  max-width: 420px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--fg);
+  padding: 10px 14px;
+  font: inherit;
+}
+.search input:focus { outline: 1px solid var(--fg); outline-offset: 1px; }
+.search input::placeholder { color: var(--muted); }
+.no-match { color: var(--muted); margin: 0 0 24px; }
+
+/* Layout tiles in one row; home disclaimer as a small footer */
+.layout-pick { flex-wrap: nowrap; }
+.layout-btn { width: auto; flex: 1 1 0; min-width: 0; }
+dialog.layout-modal { max-width: 1000px; width: calc(100% - 32px); }
+dialog.layout-modal .layout-btn { width: auto; }
+@media (max-width: 700px) {
+  .layout-pick { flex-wrap: wrap; }
+  .layout-btn { flex: 1 1 40%; }
+}
+.footer { font-size: 8px; line-height: 1.4; margin-top: 56px; }
