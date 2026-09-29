@@ -394,3 +394,8 @@ main:not(.wide) > * { flex: 0 0 auto; }
 .card-count { margin-top: auto; align-self: flex-start; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; }
 .card[aria-pressed="true"] .card-count { border-color: var(--bg); }
 .mcard-cat { font-size: 13px; }
+
+/* Category card icon, bottom right */
+.card { position: relative; }
+.card-icon { position: absolute; right: 18px; bottom: 16px; width: 32px; height: 32px; color: var(--fg); display: inline-flex; }
+.card[aria-pressed="true"] .card-icon { color: var(--bg); }

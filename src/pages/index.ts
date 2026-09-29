@@ -1,6 +1,7 @@
 import { mechanisms } from '../content/load';
 import { LAYOUTS, gearButton, layoutTiles, savedKind } from '../layoutPick';
 import { practiceSummary } from '../scores';
+import { CATEGORY_ICON } from '../icons';
 import { h } from '../ui';
 
 /** One line under each category name. Categories themselves come from the mechanic files. */
@@ -87,6 +88,11 @@ export function indexPage(root: HTMLElement): () => void {
         h('span', { class: 'card-text' }, CATEGORY_TEXT[cat] ?? ''),
         h('span', { class: 'card-count' }, `${items.length} ${items.length === 1 ? 'mechanic' : 'mechanics'}`),
       );
+      if (CATEGORY_ICON[cat]) {
+        const icon = h('span', { class: 'card-icon', 'aria-hidden': 'true' });
+        icon.innerHTML = CATEGORY_ICON[cat];
+        card.append(icon);
+      }
       card.onclick = () => select(cat);
       cards.append(card);
     }
