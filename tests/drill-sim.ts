@@ -174,7 +174,7 @@ import { CountDrill, countRules } from '../src/count';
   console.assert(d0.phase === 'done' && d0.pass === false, 'start without stick should fail');
   // Nitro left hanging: no brake within 300 ms ends the run.
   const hang = runCount('count nitro left hanging', [dn('drift', 100), dn('nitro', 200), dn('drift', 1300)]);
-  console.assert(hang.pass === false && hang.failReason()!.includes('did not follow'), 'hanging nitro should fail');
+  console.assert(hang.pass === false && hang.failReason()!.includes('came 1100 ms'), 'hanging nitro reports its gap');
   // A pause between punches is fine.
   const pause = runCount('count pause between punches', [dn('drift', 100), dn('nitro', 200), dn('drift', 300), dn('nitro', 2000), dn('drift', 2100)]);
   console.assert(pause.pass === true && pause.score()!.value === 2, 'pause between punches should pass');
@@ -261,7 +261,9 @@ import { CountDrill, countRules } from '../src/count';
   const ok = runBn('brake nitro three separate', three);
   console.assert(ok.pass === true && ok.score()!.value === 3, 'three separate brake nitros pass');
   const slow = runBn('brake nitro slow brake', [dn('nitro', 100), dn('drift', 260)]);
-  console.assert(slow.pass === false && slow.failReason()!.includes('did not follow'), 'slow brake fails');
+  console.assert(slow.pass === false && slow.failReason()!.includes('came 160 ms'), 'slow brake reports its gap');
+  const gone = runBn('brake nitro nothing after nitro', [dn('nitro', 100)]);
+  console.assert(gone.pass === false && gone.failReason()!.includes('nothing came'), 'silence fails after the grace');
   const order = runBn('brake nitro brake first', [dn('drift', 100), dn('nitro', 150)]);
   console.assert(order.phase === 'armed' || order.pass === false, 'brake first does not start');
   console.log('brake nitro assertions ran');

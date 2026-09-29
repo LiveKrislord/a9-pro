@@ -39,6 +39,9 @@ export function countRules(def: CountDef, params: ParamValues): CountRules {
   };
 }
 
+/** How long past the gap limit the drill keeps waiting, so a late press can be reported with its real gap. */
+const LATE_GRACE_MS = 900;
+
 /** Tutorial rhythm: the pattern's presses a beat apart, then a pause, repeated for the duration. */
 const PRESS_GAP_MS = 160;
 const REPEAT_GAP_MS = 600;
@@ -134,6 +137,15 @@ export class CountDrill implements DrillEngine {
       this.fail(`Pressed ${ACTIONS[e.action].label.toLowerCase()}, expected ${ACTIONS[expected].label.toLowerCase()} (${this.rules.labels[this.index].toLowerCase()})`);
       return;
     }
+    // Mid-pattern press that came too late: report the real gap.
+    if (this.index > 0) {
+      const gap = e.t - this.lastPressT;
+      if (gap > this.rules.maxGapMs) {
+        const prev = this.rules.labels[this.index - 1].toLowerCase();
+        this.fail(`${ACTIONS[e.action].label} came ${Math.round(gap)} ms after the ${prev}, limit ${this.rules.maxGapMs} ms`);
+        return;
+      }
+    }
     this.index++;
     this.lastPressT = e.t;
     if (this.index === p.length) {
@@ -150,10 +162,11 @@ export class CountDrill implements DrillEngine {
 
   tick(now: number) {
     if (this.phase !== 'running') return;
-    // Mid-pattern: the next press is overdue.
-    if (this.index > 0 && now - this.lastPressT > this.rules.maxGapMs) {
+    // Mid-pattern and nothing came for a long while: give up. A merely late press is
+    // reported with its real gap when it arrives, see input().
+    if (this.index > 0 && now - this.lastPressT > this.rules.maxGapMs + LATE_GRACE_MS) {
       const expected = this.rules.pattern[this.index];
-      this.fail(`${ACTIONS[expected].label} (${this.rules.labels[this.index].toLowerCase()}) did not follow within ${this.rules.maxGapMs} ms`);
+      this.fail(`${ACTIONS[expected].label} (${this.rules.labels[this.index].toLowerCase()}) did not follow within ${this.rules.maxGapMs} ms, nothing came for ${this.rules.maxGapMs + LATE_GRACE_MS} ms`);
       return;
     }
     if (this.endT !== null && now >= this.endT) this.finish();
