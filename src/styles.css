@@ -413,3 +413,8 @@ main:not(.wide) > * { flex: 0 0 auto; }
 .tagline strong { font-size: 20px; font-weight: 700; }
 .tagline span { color: var(--muted); font-size: 15px; }
 .home-head .summary { display: none; }
+
+/* Layout tiles: every drawing sits centered in a box of the same height, so labels line up */
+.layout-btn { justify-content: flex-end; }
+.layout-btn .diagram { height: 140px; width: 100%; max-width: none; margin: 0; }
+.layout-pick.compact .layout-btn .diagram { height: 90px; }
