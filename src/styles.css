@@ -371,3 +371,8 @@ dialog.layout-modal .layout-btn { width: auto; }
   .layout-btn { flex: 1 1 40%; }
 }
 .footer { font-size: 8px; line-height: 1.4; margin-top: 56px; }
+
+/* Home footer pinned to the very bottom of the page */
+main:not(.wide) { display: flex; flex-direction: column; min-height: 100vh; box-sizing: border-box; }
+main:not(.wide) > * { flex: 0 0 auto; }
+.footer { margin-top: auto; padding-top: 40px; }
