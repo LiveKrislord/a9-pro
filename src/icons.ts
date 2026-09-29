@@ -1,3 +1,5 @@
+import floatIcon from './assets/float-icon.png';
+
 /**
  * Line icons for the home cards, 32px, drawn in the current text colour.
  * Kept as strings so they can be dropped into innerHTML.
@@ -40,8 +42,11 @@ export const ICON_MOMENTUM = wrap(`
   <path d="M4 12h5M3 15.5h3.5"/>
 `);
 
+/** Hand-drawn drifting car (white on transparent), scaled to the card icon size. */
+export const ICON_FLOAT_IMAGE = `<img src="${floatIcon}" alt="" width="32" height="32">`;
+
 export const CATEGORY_ICON: Record<string, string> = {
-  'Make it float': ICON_FLOAT,
+  'Make it float': ICON_FLOAT_IMAGE,
   'No speed lose': ICON_SPEED,
   'Gain momentum': ICON_MOMENTUM,
 };
