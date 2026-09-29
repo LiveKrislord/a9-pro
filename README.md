@@ -99,3 +99,7 @@ count:
 ```
 
 Order only, no timing windows. The clock starts on the entry press, or on the first press of the pattern when there is no entry, and the run always passes when time is up. Every completed pass through the pattern counts. A press out of order, or one made without the `requireHeld` actions held, ends the run as a fail, and the count so far is still recorded. When a pattern starts and ends with the same action, the closing press also opens the next repetition. The count is kept as the personal best.
+
+## License
+
+The code is released under the MIT License, see `LICENSE`. The guide text in `src/content/` is released under Creative Commons Attribution 4.0 (CC BY 4.0): reuse it with credit to LiveKrislord. Embedded videos belong to their creators and are not covered by either license. Asphalt is a trademark of Gameloft; this is an unofficial fan project.
