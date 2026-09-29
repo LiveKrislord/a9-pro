@@ -10,7 +10,7 @@ import { CountDrill, countRules, countSequence } from '../count';
 import type { DrillEngine } from '../engine';
 import { startInput } from '../input';
 import { getMechanism } from '../content/load';
-import { savedKind } from './index';
+import { gearButton, savedKind } from '../layoutPick';
 import { h, segmented } from '../ui';
 import { addRun, clearRecord, loadRecord, recordKey, saveRecord } from '../scores';
 
@@ -42,7 +42,7 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
   document.title = `${def.title} · A9 Pro`;
 
   // The layout is chosen on the home page and remembered.
-  const kind: ControllerKind = savedKind() ?? 'xbox';
+  let kind: ControllerKind = savedKind() ?? 'xbox';
   let driftMode: DriftMode = localStorage.getItem(DRIFT_KEY) === 'tap' ? 'tap' : 'hold';
   let labels: 'off' | 'on' = localStorage.getItem(LABELS_KEY) === 'on' ? 'on' : 'off';
   let params: ParamValues = defaultParams(def);
@@ -206,7 +206,8 @@ export function mechanismPage(root: HTMLElement, id: string): () => void {
   const home = h('a', { href: '#/', class: 'home', 'aria-label': 'Home', title: 'All mechanics' });
   home.innerHTML =
     '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 10.5V20h13v-9.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M10 20v-6h4v6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>';
-  side.prepend(h('p', { class: 'crumb' }, home));
+  const gear = gearButton((k) => { kind = k; rebuild(); });
+  side.prepend(h('p', { class: 'crumb' }, home, gear));
   main.prepend(h('h1', {}, def.title));
   if (def.summary) main.insertBefore(h('p', { class: 'summary' }, def.summary), main.children[1]);
   root.classList.add('wide');

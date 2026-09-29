@@ -275,3 +275,13 @@ dialog.notice .close:hover { color: var(--fg); border-color: var(--muted); }
 .layout-btn[aria-pressed="true"] span { font-weight: 600; }
 .layout-pick.compact .layout-btn { width: 130px; padding: 10px 10px 8px; font-size: 14px; }
 .layout-btn.no-labels .diagram text { display: none; }
+
+/* Gear button (layout settings) and home header */
+.gear { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border: 1px solid var(--line); border-radius: 10px; background: none; color: var(--fg); cursor: pointer; }
+.gear:hover { border-color: var(--muted); background: var(--bg); }
+.crumb { display: flex; gap: 10px; align-items: center; }
+.home-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.home-head h1 { margin: 0; }
+dialog.layout-modal { max-width: 720px; }
+dialog.layout-modal .layout-pick { margin: 8px 0 0; }
+dialog.layout-modal .layout-btn { width: 200px; }
