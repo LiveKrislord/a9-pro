@@ -1,5 +1,6 @@
 import floatIcon from './assets/float-icon.png';
 import momentumIcon from './assets/momentum-icon.png';
+import speedIcon from './assets/speed-icon.png';
 
 /**
  * Line icons for the home cards, 32px, drawn in the current text colour.
@@ -46,9 +47,10 @@ export const ICON_MOMENTUM = wrap(`
 /** Hand-drawn drifting car (white on transparent), scaled to the card icon size. */
 export const ICON_FLOAT_IMAGE = `<img src="${floatIcon}" alt="" width="32" height="32">`;
 export const ICON_MOMENTUM_IMAGE = `<img src="${momentumIcon}" alt="" width="32" height="32">`;
+export const ICON_SPEED_IMAGE = `<img src="${speedIcon}" alt="" width="32" height="32">`;
 
 export const CATEGORY_ICON: Record<string, string> = {
   'Make it float': ICON_FLOAT_IMAGE,
-  'No speed lose': ICON_SPEED,
+  'No speed lose': ICON_SPEED_IMAGE,
   'Gain momentum': ICON_MOMENTUM_IMAGE,
 };
