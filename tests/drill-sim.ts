@@ -266,5 +266,13 @@ import { CountDrill, countRules } from '../src/count';
   console.assert(gone.pass === false && gone.failReason()!.includes('nothing came'), 'silence fails after the grace');
   const order = runBn('brake nitro brake first', [dn('drift', 100), dn('nitro', 150)]);
   console.assert(order.phase === 'armed' || order.pass === false, 'brake first does not start');
+  // Continuous chain: nitro, brake, nitro, brake, nitro ... each brake counts one.
+  const chainBn: InputEvent[] = [dn('nitro', 100)];
+  for (let t = 250; t < 3000; t += 300) chainBn.push(dn('drift', t), dn('nitro', t + 150));
+  const cb = runBn('brake nitro chained', chainBn);
+  console.assert(cb.pass === true && cb.score()!.value === chainBn.filter((e) => e.action === 'drift').length, 'chain counts every brake');
+  // Rest after a closing nitro, then restart with a fresh nitro: allowed.
+  const rest = runBn('brake nitro rest then restart', [dn('nitro', 100), dn('drift', 200), dn('nitro', 300), dn('nitro', 2000), dn('drift', 2100), dn('nitro', 2200)]);
+  console.assert(rest.pass === true && rest.score()!.value === 2, 'rest then restart counts two');
   console.log('brake nitro assertions ran');
 }

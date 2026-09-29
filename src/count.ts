@@ -79,6 +79,8 @@ export class CountDrill implements DrillEngine {
   private armedAt = 0;
   /** Time of the last press that advanced the pattern. */
   private lastPressT = 0;
+  /** Overlap chains: true right after a completed link, until the player continues or restarts. */
+  private resting = false;
   /** Every relevant press since arming, so a failed run can show exactly what was received. */
   private log: { action: ActionId; t: number }[] = [];
   private down = new Set<ActionId>();
@@ -93,6 +95,7 @@ export class CountDrill implements DrillEngine {
     this.index = 0;
     this.completed = [];
     this.reason = null;
+    this.resting = false;
     this.log = [];
     this.armedAt = now;
     this.down = new Set(held);
@@ -133,12 +136,17 @@ export class CountDrill implements DrillEngine {
       this.fail(`${ACTIONS[e.action].label} pressed with ${held} let go`);
       return;
     }
+    // Resting after a completed chain link: a fresh opener restarts without penalty,
+    // and the next expected press is not timed against the rest.
+    const wasResting = this.resting;
+    this.resting = false;
+    if (wasResting && e.action === p[0]) { this.lastPressT = e.t; return; }
     if (e.action !== expected) {
       this.fail(`Pressed ${ACTIONS[e.action].label.toLowerCase()}, expected ${ACTIONS[expected].label.toLowerCase()} (${this.rules.labels[this.index].toLowerCase()})`);
       return;
     }
     // Mid-pattern press that came too late: report the real gap.
-    if (this.index > 0) {
+    if (this.index > 0 && !wasResting) {
       const gap = e.t - this.lastPressT;
       if (gap > this.rules.maxGapMs) {
         const prev = this.rules.labels[this.index - 1].toLowerCase();
@@ -151,6 +159,7 @@ export class CountDrill implements DrillEngine {
     if (this.index === p.length) {
       this.completed.push(e.t);
       this.index = this.rules.overlap && p[0] === p[p.length - 1] ? 1 : 0;
+      this.resting = this.index === 1;
     }
   }
 
@@ -164,7 +173,7 @@ export class CountDrill implements DrillEngine {
     if (this.phase !== 'running') return;
     // Mid-pattern and nothing came for a long while: give up. A merely late press is
     // reported with its real gap when it arrives, see input().
-    if (this.index > 0 && now - this.lastPressT > this.rules.maxGapMs + LATE_GRACE_MS) {
+    if (this.index > 0 && !this.resting && now - this.lastPressT > this.rules.maxGapMs + LATE_GRACE_MS) {
       const expected = this.rules.pattern[this.index];
       this.fail(`${ACTIONS[expected].label} (${this.rules.labels[this.index].toLowerCase()}) did not follow within ${this.rules.maxGapMs} ms, nothing came for ${this.rules.maxGapMs + LATE_GRACE_MS} ms`);
       return;

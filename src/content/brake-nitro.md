@@ -2,7 +2,7 @@
 id: brake-nitro
 title: Brake nitro
 category: No speed lose
-summary: Nitro, brake, nitro, three quick taps. The first trick to learn.
+summary: Nitro, brake, nitro, brake, nitro. Chain it as fast as you can.
 type: count
 params:
   duration:
@@ -21,7 +21,7 @@ count:
   durationParam: duration
   unitLabel: Brake nitros
   maxGapMs: 300
-  chain: separate
+  chain: overlap
 ---
 
 ## What it is
@@ -34,11 +34,11 @@ The brake nitro is the first hidden mechanic most players learn, and the easiest
 2. Tap brake within 300 ms.
 3. Tap nitro again within 300 ms of the brake.
 
-That is the whole move. Three taps in well under a second. Do it again whenever you have nitro and room.
+4. Keep going: brake, nitro, brake, nitro. Every closing nitro is the opening nitro of the next one, so the chain is just S, Space, S, Space as fast as your hands allow. The faster, the better.
 
 ## Reading the drill
 
-Every nitro, brake, nitro with both gaps under 300 ms counts as one brake nitro. A gap longer than 300 ms ends the run, and so does a press out of order, like two brakes in a row. Between two brake nitros there is no limit, so take your time before the next one. The results list every completed brake nitro with the moment it finished, and the record line keeps your best count for that duration.
+Every brake that sits between two nitros, with both gaps under 300 ms, counts as one brake nitro. In a chain each nitro closes one and opens the next. A gap longer than 300 ms inside the chain ends the run, and so does a press out of order, like two brakes in a row. After a nitro you may stop and start again with a fresh nitro whenever you like. The results list every completed brake nitro with the moment it finished, and the record line keeps your best count for that duration.
 
 ## Common mistakes
 

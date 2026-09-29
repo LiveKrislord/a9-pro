@@ -95,7 +95,7 @@ count:
   requireHeld: ["steer-{side}"]   # optional: presses count only while these are held
   unitLabel: Punch drifts          # optional: name for one completed pattern
   maxGapMs: 300                    # optional: inside a pass, each press must follow the previous this fast
-  chain: separate                  # or overlap: the closing press also opens the next pass when first and last actions match
+  chain: separate                  # or overlap: the closing press also opens the next pass when first and last actions match; resting after a completed link is allowed
 ```
 
 Order only, no timing windows. The clock starts on the entry press, or on the first press of the pattern when there is no entry, and the run always passes when time is up. Every completed pass through the pattern counts. A press out of order, or one made without the `requireHeld` actions held, ends the run as a fail, and the count so far is still recorded. When a pattern starts and ends with the same action, the closing press also opens the next repetition. The count is kept as the personal best.
