@@ -15,7 +15,7 @@ const CATEGORY_TEXT: Record<string, string> = {
 function brand(): HTMLElement {
   return h('div', { class: 'brand' },
     h('h1', { class: 'mark', 'aria-label': 'A9 Pro' }, h('span', { class: 'mark-a' }, h('i', {}, '/'), 'A'), h('span', { class: 'mark-sub' }, 'PRO')),
-    h('div', { class: 'tagline' }, h('strong', {}, 'From zero to hero'), h('span', {}, 'full mechanics guide')),
+    h('div', { class: 'tagline' }, h('strong', {}, 'From Zero to Hero'), h('span', {}, 'full mechanics guide')),
   );
 }
 
