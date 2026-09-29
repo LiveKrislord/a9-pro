@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#111"/><rect x="18" y="18" width="28" height="28" fill="#e6e6e6"/><rect x="26" y="26" width="12" height="12" fill="#111"/></svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'>
+  <rect width='512' height='512' rx='96' fill='#111111'/>
+  <g font-family='Segoe UI, Arial, Helvetica, sans-serif' font-weight='900' font-style='italic' text-anchor='middle'>
+    <text x='232' y='300' font-size='300' fill='#ffffff'><tspan fill='#8a5cf5'>/</tspan>A</text>
+    <text x='256' y='420' font-size='92' font-style='normal' font-weight='700' letter-spacing='22' fill='#8a5cf5'>PRO</text>
+  </g>
+</svg>

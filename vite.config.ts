@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'favicon.png'],
       manifest: {
         name: 'A9 Pro: hidden mechanics',
         short_name: 'A9 Pro',
