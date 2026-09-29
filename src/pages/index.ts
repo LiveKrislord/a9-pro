@@ -1,6 +1,14 @@
 import { mechanisms } from '../content/load';
-import { gearButton, layoutTiles, savedKind } from '../layoutPick';
+import { LAYOUTS, gearButton, layoutTiles, savedKind } from '../layoutPick';
+import { practiceSummary } from '../scores';
 import { h } from '../ui';
+
+/** One line under each category name. Categories themselves come from the mechanic files. */
+const CATEGORY_TEXT: Record<string, string> = {
+  'Make it float': 'Lift the front and carry speed through the corner.',
+  'No speed lose': 'Keep the pace where everyone else brakes.',
+  'Gain momentum': 'Come out of a landing faster than you went in.',
+};
 
 const FOOTER = 'Unofficial fan project, not affiliated with or endorsed by Gameloft. Asphalt is a trademark of Gameloft. Xbox is a trademark of Microsoft. PlayStation and DualSense are trademarks of Sony Interactive Entertainment. Videos belong to their creators. All credits reserved to LiveKrislord.';
 
@@ -48,7 +56,9 @@ export function indexPage(root: HTMLElement): () => void {
 
     // Free search across every mechanic: title, summary and category.
     const searchBox = h('input', { type: 'search', placeholder: 'Search a mechanic, for example punch', 'aria-label': 'Search mechanics', autocomplete: 'off' });
-    const search = h('div', { class: 'search' }, searchBox);
+    const searchIcon = h('span', { class: 'search-icon', 'aria-hidden': 'true' });
+    searchIcon.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    const search = h('div', { class: 'search' }, searchIcon, searchBox);
     searchBox.addEventListener('input', () => {
       const q = searchBox.value.trim().toLowerCase();
       selected = null;
@@ -74,17 +84,21 @@ export function indexPage(root: HTMLElement): () => void {
     for (const [cat, items] of categories) {
       const card = h('button', { class: 'card', type: 'button', 'data-cat': cat, 'aria-pressed': 'false' },
         h('span', { class: 'card-title' }, cat),
+        h('span', { class: 'card-text' }, CATEGORY_TEXT[cat] ?? ''),
         h('span', { class: 'card-count' }, `${items.length} ${items.length === 1 ? 'mechanic' : 'mechanics'}`),
       );
       card.onclick = () => select(cat);
       cards.append(card);
     }
+    const layoutName = LAYOUTS.find((l) => l.value === savedKind())?.label ?? '';
 
     root.replaceChildren(
-      h('div', { class: 'home-head' }, h('h1', {}, 'A9 hidden mechanics'), gearButton(() => render())),
-      h('p', { class: 'summary' }, 'Input layouts and drills for Asphalt 9 Legends. Xbox, DualSense and keyboard.'),
-      h('p', { class: 'hint' }, 'Search a mechanic, or pick a category. Plug in your controller or use the keyboard.'),
+      h('div', { class: 'home-head' },
+        h('div', {}, h('h1', {}, 'A9 hidden mechanics'), h('p', { class: 'summary' }, 'Learn the tricks, then test your hands.')),
+        h('div', { class: 'home-tools' }, h('span', { class: 'chip' }, layoutName), gearButton(() => render())),
+      ),
       search,
+      h('h2', { class: 'home-section' }, 'Categories'),
       cards,
       noMatch,
       carousel,
@@ -96,10 +110,14 @@ export function indexPage(root: HTMLElement): () => void {
   function buildCarousel(host: HTMLElement, items: typeof mechanisms, showCategory = false) {
     const track = h('div', { class: 'track' });
     for (const m of items) {
+      const p = practiceSummary(m.id);
+      const foot = p.attempts
+        ? `${p.passes} of ${p.attempts} runs passed`
+        : 'Not practised yet';
       track.append(h('a', { class: 'mcard', href: `#/m/${m.id}` },
         h('span', { class: 'mcard-title' }, m.title),
         h('span', { class: 'mcard-text' }, m.summary ?? ''),
-        showCategory ? h('span', { class: 'mcard-cat' }, m.category ?? '') : '',
+        h('span', { class: 'mcard-cat' }, showCategory && m.category ? `${m.category} · ${foot}` : foot),
       ));
     }
     const chevron = (dir: 'left' | 'right') => {

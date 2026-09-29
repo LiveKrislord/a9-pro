@@ -55,3 +55,19 @@ export function addRun(r: PracticeRecord, pass: boolean, score: Score | null): P
   }
   return next;
 }
+
+/** Practice totals for a mechanic across every settings combination. */
+export function practiceSummary(mechanicId: string): { attempts: number; passes: number } {
+  let attempts = 0;
+  let passes = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith(`${PREFIX}${mechanicId}|`)) continue;
+      const r = JSON.parse(localStorage.getItem(k) ?? '{}') as Partial<PracticeRecord>;
+      attempts += r.attempts ?? 0;
+      passes += r.passes ?? 0;
+    }
+  } catch { /* storage unavailable */ }
+  return { attempts, passes };
+}

@@ -376,3 +376,21 @@ dialog.layout-modal .layout-btn { width: auto; }
 main:not(.wide) { display: flex; flex-direction: column; min-height: 100vh; box-sizing: border-box; }
 main:not(.wide) > * { flex: 0 0 auto; }
 .footer { margin-top: auto; padding-top: 40px; }
+
+/* Home redesign */
+.home-head { align-items: flex-start; margin-bottom: 20px; }
+.home-head .summary { margin: 4px 0 0; }
+.home-tools { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+.chip { display: inline-block; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 14px; white-space: nowrap; }
+.search { position: relative; margin: 0 0 28px; }
+.search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); display: inline-flex; }
+.search input { max-width: none; padding: 14px 16px 14px 44px; font-size: 17px; border-radius: 10px; }
+.home-section { font-size: 14px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+.cards { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin: 0 0 28px; }
+.card { gap: 8px; padding: 22px 22px 18px; min-height: 150px; }
+.card-title { font-size: 21px; }
+.card-text { color: var(--muted); font-size: 14px; line-height: 1.45; }
+.card[aria-pressed="true"] .card-text { color: var(--bg); opacity: 0.75; }
+.card-count { margin-top: auto; align-self: flex-start; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; }
+.card[aria-pressed="true"] .card-count { border-color: var(--bg); }
+.mcard-cat { font-size: 13px; }
